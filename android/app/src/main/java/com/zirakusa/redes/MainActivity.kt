@@ -48,7 +48,7 @@ class MainActivity : ComponentActivity() {
         phone = Phone(this)
         val values = SharedValues(this)
         val runner = Tests.runner(values)
-        state = RedesState(values, runner, phone::status, phone::lastScan, launch = { block -> lifecycleScope.launch { block() } })
+        state = RedesState(values, runner, phone::status, phone::lastScan, launch = { block -> lifecycleScope.launch { block() } }, cells = phone::sims)
         runner.listener = { p, v, f -> runOnUiThread { state.progress(p, v, f) } }
         McpMode.onChanged = { state.reload() }
         McpMode.load(this)
@@ -71,7 +71,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() { super.onResume(); permissions(); state.reload(); phone.scan() }
     override fun onDestroy() { unregisterReceiver(scans); super.onDestroy() }
 
-    private fun permissions() { state.canName = phone.canName(); state.canScan = phone.canScan() }
+    private fun permissions() { state.canName = phone.canName(); state.canScan = phone.canScan(); state.canPhone = phone.canPhone() }
 
     private fun askWifi() = allow.launch(buildList {
         add(Manifest.permission.ACCESS_COARSE_LOCATION); add(Manifest.permission.ACCESS_FINE_LOCATION); add(Manifest.permission.READ_PHONE_STATE)

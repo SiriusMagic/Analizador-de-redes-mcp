@@ -14,7 +14,9 @@ import com.zirakusa.redes.data.Phase
 import com.zirakusa.redes.data.Result
 import com.zirakusa.redes.data.Runner
 import com.zirakusa.redes.data.Settings
+import com.zirakusa.redes.data.Sim
 import com.zirakusa.redes.data.Status
+import com.zirakusa.redes.data.WifiFactors
 import com.zirakusa.redes.ui.theme.Accent
 import com.zirakusa.redes.ui.theme.ThemeMode
 
@@ -29,7 +31,8 @@ enum class Page { MAIN, SETTINGS, MCP }
  * how far) and the history, and the settings. [read] and [look] ask Android; [launch] runs the test. Screens only paint.
  */
 class RedesState(kv: KeyValues, private val runner: Runner, private val read: () -> Status = { Status.NONE },
-    private val look: () -> List<AccessPoint> = { emptyList() }, private val launch: (suspend () -> Unit) -> Unit = {}) {
+    private val look: () -> List<AccessPoint> = { emptyList() }, private val launch: (suspend () -> Unit) -> Unit = {},
+    private val cells: () -> List<Sim> = { emptyList() }) {
     private val settings = Settings(kv)
     private val history = History(kv)
 
@@ -37,6 +40,8 @@ class RedesState(kv: KeyValues, private val runner: Runner, private val read: ()
     var page by mutableStateOf(Page.MAIN)
     var status by mutableStateOf(Status.NONE); private set
     var nearby by mutableStateOf(emptyList<AccessPoint>()); private set
+    /** The active SIMs, for «Factores de velocidad celular». */
+    var sims by mutableStateOf(emptyList<Sim>()); private set
     var results by mutableStateOf(history.list()); private set
     /** The phase of the test running, or null. */
     var phase by mutableStateOf<Phase?>(null); private set
@@ -47,15 +52,18 @@ class RedesState(kv: KeyValues, private val runner: Runner, private val read: ()
     /** Android lets Redes see the Wi‑Fi's name (location) and the networks nearby. */
     var canName by mutableStateOf(false)
     var canScan by mutableStateOf(false)
+    /** Android lets Redes read the SIMs (phone permission). */
+    var canPhone by mutableStateOf(false)
 
     var saver by mutableStateOf(settings.saver); private set
     var themeMode by mutableStateOf(settings.theme?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.BLACK); private set
     var accent by mutableStateOf(settings.accent?.let { runCatching { Accent.valueOf(it) }.getOrNull() } ?: Accent.VERDE); private set
 
     val advice get() = status.wifi?.let { Channels.advice(it.asAccessPoint(), nearby) }
+    val factors get() = status.wifi?.let { WifiFactors.of(it, nearby) }
     val canTest get() = status.link != Link.NONE && phase == null
 
-    fun refresh() { status = read(); nearby = look() }
+    fun refresh() { status = read(); nearby = look(); sims = cells() }
     fun reload() { results = history.list() }
 
     /** Progress of a test (also one the AI started). */

@@ -10,11 +10,15 @@ import android.net.wifi.ScanResult
 import android.net.wifi.WifiInfo
 import android.net.wifi.WifiManager
 import android.os.Build
+import android.telephony.SubscriptionManager
 import android.telephony.TelephonyManager
 import androidx.core.content.ContextCompat
 import com.zirakusa.redes.data.AccessPoint
+import com.zirakusa.redes.data.CellTech
 import com.zirakusa.redes.data.Link
 import com.zirakusa.redes.data.Security
+import com.zirakusa.redes.data.Sim
+import com.zirakusa.redes.data.Spectrum
 import com.zirakusa.redes.data.Status
 import com.zirakusa.redes.data.WifiNow
 import java.net.Inet4Address
@@ -61,8 +65,12 @@ class Phone(context: Context) {
             ?: wm?.connectionInfo ?: return null
         val ssid = info.ssid?.removeSurrounding("\"")?.takeIf { it.isNotBlank() && it != UNKNOWN && it != "<unknown ssid>" }
         val bssid = info.bssid?.takeIf { it != "02:00:00:00:00:00" }
-        val security = bssid?.let { b -> lastScan().firstOrNull { it.bssid.equals(b, true) }?.security }
-        return WifiNow(ssid, bssid, info.rssi, info.frequency, info.linkSpeed, if (Build.VERSION.SDK_INT >= 30) info.wifiStandard else 0, security)
+        val seen = bssid?.let { b -> lastScan().firstOrNull { it.bssid.equals(b, true) } }
+        val (standard, maxRx, maxTx) = if (Build.VERSION.SDK_INT >= 30)
+            Triple(info.wifiStandard, info.maxSupportedRxLinkSpeedMbps.coerceAtLeast(0), info.maxSupportedTxLinkSpeedMbps.coerceAtLeast(0))
+            else Triple(0, 0, 0)
+        return WifiNow(ssid, bssid, info.rssi, info.frequency, info.linkSpeed, standard, seen?.security, seen?.widthMhz ?: 0,
+            seen?.centerMhz ?: 0, maxRx, maxTx)
     }
 
     @SuppressLint("MissingPermission") // only asked after the user allowed it
@@ -77,6 +85,40 @@ class Phone(context: Context) {
         }
     }.getOrDefault("")
 
+    fun canPhone() = granted(Manifest.permission.READ_PHONE_STATE)
+
+    /**
+     * The active SIMs: carrier, 2G…5G (4G+ when Android reports more than one LTE carrier joined) and signal in dBm.
+     * Empty without the phone permission or without SIM. Reads only.
+     */
+    @SuppressLint("MissingPermission") // only after checking the permission
+    fun sims(): List<Sim> = if (!canPhone()) emptyList() else runCatching {
+        val sm = app.getSystemService(SubscriptionManager::class.java) ?: return emptyList()
+        sm.activeSubscriptionInfoList.orEmpty().sortedBy { it.simSlotIndex }.map { info ->
+            val t = tm?.createForSubscriptionId(info.subscriptionId)
+            val carrier = info.carrierName?.toString()?.takeIf { it.isNotBlank() } ?: info.displayName?.toString().orEmpty()
+            Sim(info.simSlotIndex + 1, carrier, tech(t), signal(t))
+        }
+    }.getOrDefault(emptyList())
+
+    @SuppressLint("MissingPermission")
+    private fun tech(t: TelephonyManager?): CellTech = runCatching {
+        when (t?.dataNetworkType) {
+            TelephonyManager.NETWORK_TYPE_NR -> CellTech.G5
+            TelephonyManager.NETWORK_TYPE_LTE ->
+                if (Build.VERSION.SDK_INT >= 28 && (t.serviceState?.cellBandwidths?.size ?: 0) > 1) CellTech.G4_PLUS else CellTech.G4
+            TelephonyManager.NETWORK_TYPE_HSPAP, TelephonyManager.NETWORK_TYPE_HSPA, TelephonyManager.NETWORK_TYPE_HSDPA,
+            TelephonyManager.NETWORK_TYPE_HSUPA, TelephonyManager.NETWORK_TYPE_UMTS -> CellTech.G3
+            TelephonyManager.NETWORK_TYPE_EDGE, TelephonyManager.NETWORK_TYPE_GPRS, TelephonyManager.NETWORK_TYPE_GSM -> CellTech.G2
+            else -> CellTech.UNKNOWN
+        }
+    }.getOrDefault(CellTech.UNKNOWN)
+
+    /** RSRP for 4G, SS‑RSRP for 5G, else what Android gives as dBm; null when unknown (or before Android 10). */
+    private fun signal(t: TelephonyManager?): Int? = if (Build.VERSION.SDK_INT < 29) null else runCatching {
+        t?.signalStrength?.cellSignalStrengths.orEmpty().map { it.dbm }.firstOrNull { it in -150..-20 }
+    }.getOrNull()
+
     /** Asks Android to look for networks (it allows a few times every 2 minutes); the answer comes in [lastScan]. */
     @Suppress("DEPRECATION") // still the only way to ask for a fresh list
     fun scan(): Boolean = canScan() && runCatching { wm?.startScan() == true }.getOrDefault(false)
@@ -85,7 +127,8 @@ class Phone(context: Context) {
     fun lastScan(): List<AccessPoint> = if (!canScan()) emptyList() else runCatching {
         wm?.scanResults.orEmpty().map { r: ScanResult ->
             @Suppress("DEPRECATION") val name = if (Build.VERSION.SDK_INT >= 33) r.wifiSsid?.toString()?.removeSurrounding("\"").orEmpty() else r.SSID.orEmpty()
-            AccessPoint(name.takeIf { it != UNKNOWN }.orEmpty(), r.BSSID.orEmpty(), r.frequency, r.level, Security.of(r.capabilities.orEmpty()))
+            AccessPoint(name.takeIf { it != UNKNOWN }.orEmpty(), r.BSSID.orEmpty(), r.frequency, r.level, Security.of(r.capabilities.orEmpty()),
+                Spectrum.widthMhz(r.channelWidth), r.centerFreq0)
         }.sortedByDescending { it.dbm }
     }.getOrDefault(emptyList())
 

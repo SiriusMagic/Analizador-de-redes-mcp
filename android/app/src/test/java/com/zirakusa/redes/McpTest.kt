@@ -65,9 +65,13 @@ class McpTest {
         assertEquals("wifi", s.getString("link")); assertEquals("Casa", s.getJSONObject("wifi").getString("name"))
         assertEquals(6, s.getJSONObject("wifi").getInt("channel")); assertEquals("excellent", s.getJSONObject("wifi").getString("signal"))
         assertEquals("192.168.1.1", s.getString("gateway"))
+        assertEquals(20, s.getJSONObject("wifi").getInt("width_mhz"))
+        val f = s.getJSONObject("wifi").getJSONObject("factors")
+        assertEquals("fair", f.getString("grade")); assertEquals("[\"spectrum\"]", f.getJSONArray("warnings").toString())
         val n = ok("network_wifi_nearby", JSONObject().put("limit", 3))
         assertEquals(5, n.getInt("total")); assertEquals(3, n.getJSONArray("networks").length())
         assertEquals(1, n.getJSONObject("advice").getInt("best_channel")); assertTrue(n.getJSONObject("advice").getBoolean("worth_changing"))
+        assertEquals(20, n.getJSONArray("networks").getJSONObject(0).getInt("width_mhz"))
         assertFalse(n.getJSONArray("networks").getJSONObject(0).has("bssid"))                 // neighbours' hardware addresses never go out
         val t = ok("network_speed_test").getJSONObject("test")
         assertEquals(92.4, t.getDouble("download_mbps"), 0.0); assertEquals("Casa", t.getString("network"))

@@ -1,3 +1,16 @@
+# Redes 0.2.0
+
+- Wi‑Fi cercanas: nuevo **espectro** por banda (2,4 GHz · 5 GHz · 6 GHz, con cuántas redes hay en cada una). Cada red se
+  dibuja con su ancho real de canal (20, 40, 80, 160 o 320 MHz) y su señal en dBm, con un color propio; la tuya, resaltada.
+  Debajo, tu red y la lista de la banda elegida con canal y ancho («36 · 80 MHz»). Reemplaza el gráfico de barras.
+- Red: **Factores de velocidad del Wi‑Fi** con nota (Bueno / Justo / Malo): espectro (banda y ancho del canal), potencial de
+  radio (estándar, señal y máximo del enlace si Android lo da) y salud del canal, cada uno con ✓ o ⚠ y qué hacer.
+- Red: **Factores de velocidad celular**: una fila por SIM activa con operador, 4G / 4G+ / 5G y señal; avisa si es débil.
+- Modo MCP: `network_status` da `width_mhz`, `max_link_mbps` y `factors` (nota y qué limita); `network_wifi_nearby` da
+  `width_mhz` de cada red.
+- Todo sale de lo que Android ya sabe: sin servidores nuevos.
+- 17 pruebas.
+
 # Redes 0.1.0
 
 Primera versión: analizador de redes en negro con acento verde.

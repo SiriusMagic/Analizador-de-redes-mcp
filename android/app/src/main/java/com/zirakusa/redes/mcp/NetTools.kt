@@ -5,6 +5,7 @@ import com.zirakusa.redes.data.Channels
 import com.zirakusa.redes.data.Link
 import com.zirakusa.redes.data.Result
 import com.zirakusa.redes.data.Status
+import com.zirakusa.redes.data.WifiFactors
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.Instant
@@ -38,8 +39,9 @@ object NetTools {
 
     val tools = listOf(
         Tool("network_status", "How the phone is connected now: Wi‑Fi (name, signal, band, channel, speed of the link) or mobile data, " +
-            "local addresses, router and DNS.", false, schema(emptyList())),
-        Tool("network_wifi_nearby", "Wi‑Fi networks seen nearby (name, signal, band, channel, security) and, for the phone's Wi‑Fi, " +
+            "local addresses, router and DNS; for Wi‑Fi also the channel width and speed factors (grade good/fair/bad and what limits it: " +
+            "spectrum, radio, channel).", false, schema(emptyList())),
+        Tool("network_wifi_nearby", "Wi‑Fi networks seen nearby (name, signal, band, channel, channel width, security) and, for the phone's Wi‑Fi, " +
             "a calmer channel to set on the router.", false, schema(emptyList(), "limit" to prop("integer", "1–50, default 20."))),
         Tool("network_speed_history", "The speed tests made, newest first: download and upload in Mbps, ping and jitter in ms, " +
             "and what the connection is good for.", false, schema(emptyList(), "limit" to prop("integer", "1–50, default 10."))),
@@ -57,7 +59,7 @@ object NetTools {
         val known = tool.schema.getJSONObject("properties").keys().asSequence().toSet()
         args.keys().forEach { if (it !in known) throw ToolFailure("BAD_ARGUMENT", "Unknown argument «$it».") }
         return when (name) {
-            "network_status" -> status(data.status())
+            "network_status" -> status(data.status(), data.nearby())
             "network_wifi_nearby" -> nearby(data, limit(args, 20, 50))
             "network_speed_history" -> limit(args, 10, 50).let { n ->
                 val all = data.history()
@@ -73,13 +75,18 @@ object NetTools {
         }
     }
 
-    private fun status(s: Status): JSONObject {
+    private fun status(s: Status, aps: List<AccessPoint>): JSONObject {
         val o = JSONObject().put("link", s.link.key).put("online", s.online).put("metered", s.metered)
             .put("addresses", JSONArray(s.addresses)).put("gateway", s.gateway).put("dns", JSONArray(s.dns)).put("private_dns", s.privateDns)
         s.wifi?.let { w ->
             o.put("wifi", JSONObject().put("name", w.ssid ?: JSONObject.NULL).put("signal_dbm", w.dbm).put("signal", w.level.key)
                 .put("band", w.band?.key ?: JSONObject.NULL).put("channel", w.channel).put("link_mbps", w.linkMbps)
-                .put("generation", if (w.generation > 0) w.generation else JSONObject.NULL).put("security", w.security?.key ?: JSONObject.NULL))
+                .put("generation", if (w.generation > 0) w.generation else JSONObject.NULL).put("security", w.security?.key ?: JSONObject.NULL)
+                .put("width_mhz", if (w.widthMhz > 0) w.widthMhz else JSONObject.NULL)
+                .put("max_link_mbps", if (w.maxRxMbps > 0) JSONObject().put("rx", w.maxRxMbps).put("tx", w.maxTxMbps) else JSONObject.NULL)
+                .put("factors", WifiFactors.of(w, aps).let { f ->
+                    JSONObject().put("grade", f.verdict.key).put("warnings", JSONArray(f.problems)).put("channel_load", f.load)
+                }))
         }
         if (s.link == Link.CELLULAR) o.put("mobile", JSONObject().put("carrier", s.carrier).put("type", s.cellType))
         return o
@@ -90,7 +97,7 @@ object NetTools {
         val own = data.status().wifi
         val o = JSONObject().put("total", aps.size).put("networks", JSONArray(aps.take(limit).map { ap ->
             JSONObject().put("name", ap.ssid.ifEmpty { "(hidden)" }).put("signal_dbm", ap.dbm).put("band", ap.band?.key ?: JSONObject.NULL)
-                .put("channel", ap.channel).put("security", ap.security.key).put("yours", own?.bssid != null && own.bssid.equals(ap.bssid, true))
+                .put("channel", ap.channel).put("width_mhz", ap.widthMhz).put("security", ap.security.key).put("yours", own?.bssid != null && own.bssid.equals(ap.bssid, true))
         }))
         if (aps.isEmpty()) o.put("note", "No list yet: the user has to allow «Wi‑Fi cercanas» in Redes (Android asks for it).")
         own?.let { w -> Channels.advice(w.asAccessPoint(), aps) }?.let { a ->

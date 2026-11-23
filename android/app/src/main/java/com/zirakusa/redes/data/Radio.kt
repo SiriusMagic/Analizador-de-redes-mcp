@@ -51,8 +51,12 @@ object Radio {
     }
 }
 
-/** A Wi‑Fi network seen nearby. Hidden networks have an empty [ssid]. */
-data class AccessPoint(val ssid: String, val bssid: String, val mhz: Int, val dbm: Int, val security: Security) {
+/**
+ * A Wi‑Fi network seen nearby. Hidden networks have an empty [ssid]. [widthMhz] is its channel width (20–320) and
+ * [centerMhz] the centre of a bonded channel (0 when Android does not say).
+ */
+data class AccessPoint(val ssid: String, val bssid: String, val mhz: Int, val dbm: Int, val security: Security,
+    val widthMhz: Int = 20, val centerMhz: Int = 0) {
     val band get() = Radio.band(mhz)
     val channel get() = Radio.channel(mhz)
 }

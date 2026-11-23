@@ -56,4 +56,24 @@ class ScreenshotsTest {
         compose.onNodeWithText("Ahorro de datos").assertExists()
         shot("settings")
     }
+
+    /** The spectrum (5 GHz with your 80 MHz network, 2.4 GHz, empty 6 GHz) and the speed factors, on a tall phone to see them whole. */
+    @Config(qualifiers = "es-w411dp-h1400dp-xhdpi")
+    @Test fun spectrumAndFactors() {
+        val state = RedesState(values, Runner(History(values), FakeServer(), Settings(values)), { Nets.officeStatus }, { Nets.crowd }, cells = { Nets.sims })
+        state.canName = true; state.canScan = true; state.canPhone = true; state.refresh()
+        compose.setContent { RedesTheme(state.themeMode, state.accent) { RedesApp(state) } }
+        compose.onNodeWithText("Factores de velocidad del Wi‑Fi").assertExists(); compose.onNodeWithText("Justo").assertExists()
+        compose.onNodeWithText("SIM 2").assertExists()
+        shot("factors")
+        compose.onNodeWithContentDescription("Wi‑Fi cercanas").performClick()
+        compose.onNodeWithText("5 GHz (7)").assertExists(); compose.onNodeWithText("Conectada").assertExists()
+        shot("spectrum-5")
+        compose.onNodeWithText("2,4 GHz (5)").performClick()
+        compose.onNodeWithText("canal 1 · 40 MHz · -66 dBm").assertExists()
+        shot("spectrum-24")
+        compose.onNodeWithText("6 GHz (0)").performClick()
+        compose.onNodeWithText("No se ven redes en 6 GHz.").assertExists()
+        shot("spectrum-6")
+    }
 }
