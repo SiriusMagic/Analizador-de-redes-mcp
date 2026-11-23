@@ -93,10 +93,34 @@ object Channels {
     /** Advice for the network we are on ([own]), or null when it is not on 2.4 or 5 GHz. */
     fun advice(own: AccessPoint, aps: List<AccessPoint>): ChannelAdvice? {
         val band = own.band ?: return null
+        if (band == Band.B5 && own.widthMhz >= 40) return wide(own, aps)
         val options = when (band) { Band.B24 -> clean24; Band.B5 -> common5; Band.B6 -> return null }
         val current = load(aps, band, own.channel, own.bssid)
         val (best, bestLoad) = options.map { it to load(aps, band, it, own.bssid) }.minWith(compareBy({ it.second }, { abs(it.first - own.channel) }))
         return ChannelAdvice(band, own.channel, current, best, bestLoad)
+    }
+
+    /**
+     * 5 GHz routers on 40 or 80 MHz use a block of channels (149–161 for 80 MHz): moving inside the same block changes
+     * nothing, so whole blocks are compared (the usual ones without radar checks), each by every network whose own
+     * width overlaps it. The advice names the first channel of the calmest block.
+     */
+    private fun wide(own: AccessPoint, aps: List<AccessPoint>): ChannelAdvice {
+        val size = if (own.widthMhz >= 80) 4 else 2
+        val blocks = (if (size == 4) listOf(36, 149) else listOf(36, 44, 149, 157)).map { s -> (0 until size).map { s + it * 4 } }
+        fun edges(b: List<Int>) = Spectrum.mhz(Band.B5, b.first()) - 10.0 to Spectrum.mhz(Band.B5, b.last()) + 10.0
+        fun blockLoad(b: List<Int>): Int {
+            val (lo, hi) = edges(b)
+            val score = aps.filter { it.band == Band.B5 && it.bssid != own.bssid }.sumOf { ap ->
+                val c = Spectrum.center(ap).toDouble(); val half = maxOf(ap.widthMhz, 20) / 2.0
+                if (c + half > lo && c - half < hi) weight(ap.dbm) else 0.0
+            }
+            return (score * 34).toInt().coerceIn(0, 100)
+        }
+        val mine = blocks.firstOrNull { own.channel in it }
+        val current = mine?.let(::blockLoad) ?: load(aps, Band.B5, own.channel, own.bssid)
+        val (best, bestLoad) = blocks.map { it to blockLoad(it) }.minWith(compareBy({ it.second }, { if (it.first == mine) 0 else 1 }))
+        return ChannelAdvice(Band.B5, own.channel, current, if (best == mine) own.channel else best.first(), bestLoad)
     }
 
     /** Networks per channel, for the chart. */

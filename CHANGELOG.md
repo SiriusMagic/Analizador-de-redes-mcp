@@ -1,3 +1,8 @@
+# Redes 0.2.1
+
+- **Consejo de canal con 40 y 80 MHz**: en 5 GHz compara bloques enteros (con 80 MHz, 36–48 y 149–161), contando cada red
+  por todo su ancho. Ya no propone un canal dentro del mismo bloque (157 → 161 no cambiaba nada).
+
 # Redes 0.2.0
 
 - Wi‑Fi cercanas: nuevo **espectro** por banda (2,4 GHz · 5 GHz · 6 GHz, con cuántas redes hay en cada una). Cada red se

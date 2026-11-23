@@ -26,7 +26,7 @@ velocidad** por MCP.
 - Los permisos de ubicación y de dispositivos cercanos solo sirven para que Android muestre nombres de redes: Redes no
   lee ni guarda dónde estás. Sin anuncios ni estadísticas.
 
-APK: [`android/Redes-0.2.0.apk`](android/Redes-0.2.0.apk) (`com.zirakusa.redes`, firmado como el resto de la familia y
+APK: [`android/Redes-0.2.1.apk`](android/Redes-0.2.1.apk) (`com.zirakusa.redes`, firmado como el resto de la familia y
 Gateway Hub).
 
 ## Compilar y probar

@@ -111,4 +111,18 @@ class RedesMathTest {
         assertTrue(SummaryLines.lines(com.zirakusa.redes.data.Status.NONE, null, 0, { "x" }, { "y" }).isEmpty())
         state.clearHistory(); assertTrue(state.results.isEmpty())
     }
+
+    /** On 80 MHz the advice never points inside the router's own block (157 → 161 changed nothing). */
+    @Test fun wideChannelAdvice() {
+        val own = AccessPoint("Casa", "aa", 5785, -69, Security.WPA2, 80, 5775)            // 157, block 149–161
+        val near = listOf(AccessPoint("Club", "c1", 5785, -54, Security.WPA2, 80, 5775), AccessPoint("Kapak", "k1", 5180, -48, Security.WPA2, 80, 5210))
+        val a = Channels.advice(own, near + own)!!
+        assertEquals(157, a.current); assertTrue(a.best == 157 || a.best == 36)
+        assertTrue(a.best !in listOf(149, 153, 161))
+        // A busy block and an empty one: move to the empty block's first channel.
+        val busy = Channels.advice(own, listOf(AccessPoint("Club", "c1", 5785, -45, Security.WPA2, 80, 5775), AccessPoint("Otro", "o1", 5745, -48, Security.WPA2, 80, 5775)))!!
+        assertEquals(36, busy.best); assertTrue(busy.worthChanging)
+        // Alone in its block: stay.
+        assertEquals(157, Channels.advice(own, listOf(own))!!.best)
+    }
 }
