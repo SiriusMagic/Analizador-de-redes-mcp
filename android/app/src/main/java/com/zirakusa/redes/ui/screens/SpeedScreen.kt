@@ -18,6 +18,13 @@ import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.outlined.CellTower
+import androidx.compose.material.icons.outlined.Public
+import androidx.compose.material.icons.outlined.Router
+import androidx.compose.material.icons.outlined.Smartphone
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -30,18 +37,19 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.zirakusa.redes.R
+import com.zirakusa.redes.data.HistoryView
+import com.zirakusa.redes.data.Link
 import com.zirakusa.redes.data.Phase
-import com.zirakusa.redes.data.Result
 import com.zirakusa.redes.data.Use
+import com.zirakusa.redes.ui.Page
 import com.zirakusa.redes.ui.RedesState
 import com.zirakusa.redes.ui.theme.RedesColors
-import java.time.Instant
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
+import java.util.Locale
 import kotlin.math.ln
 
 /** «Velocidad»: the gauge (the speed climbs as it is measured), «Iniciar», the result with what it is good for, and the history. */
@@ -74,13 +82,45 @@ import kotlin.math.ln
             }
             if (r.server.isNotBlank()) Text(stringResource(R.string.server, r.server), color = RedesColors.Muted, fontSize = 13.sp)
         }
+        if (state.status.link != Link.NONE) PathCard(state)
         if (state.results.isNotEmpty()) {
             Box(Modifier.fillMaxWidth()) { Caption(stringResource(R.string.history)) }
-            Group { state.results.take(20).forEachIndexed { i, r -> if (i > 0) Divider(); HistoryRow(r, zone) } }
+            val top = HistoryView.top(state.results)
+            state.results.take(3).forEach { TestCard(it, top, state.model, zone) }
+            Group { Item(stringResource(R.string.history_all, state.results.size), null, onClick = { state.query = ""; state.page = Page.HISTORY }) }
         }
     }
 
-private fun num(v: Double) = if (v < 100) "%.1f".format(v).replace('.', ',') else v.toInt().toString()
+fun num(v: Double) = if (v < 100) String.format(Locale.ROOT, "%.1f", v).replace('.', ',') else v.toInt().toString()
+
+/**
+ * The path of the test: your provider (its network number and your public address only if Cloudflare said them in the
+ * last test, else just «Internet») → the access point (or the mobile network) → this phone, with its local address.
+ */
+@Composable private fun PathCard(state: RedesState) = Group {
+    val s = state.status
+    val o = state.origin
+    Row(Modifier.fillMaxWidth().padding(vertical = 16.dp, horizontal = 8.dp), verticalAlignment = Alignment.Top) {
+        Node(Icons.Outlined.Public, stringResource(R.string.path_internet), listOfNotNull(o?.asn?.takeIf { it.isNotBlank() }, o?.ip?.takeIf { it.isNotBlank() }).joinToString("\n"))
+        Arrow()
+        Node(if (s.link == Link.CELLULAR) Icons.Outlined.CellTower else Icons.Outlined.Router,
+            if (s.link == Link.CELLULAR) stringResource(R.string.path_cell) else stringResource(R.string.path_ap),
+            if (s.link == Link.CELLULAR) s.networkName() else s.wifi?.let { w -> listOfNotNull(w.ssid, w.band?.label).joinToString("\n") } ?: s.gateway)
+        Arrow()
+        Node(Icons.Outlined.Smartphone, state.model.ifBlank { stringResource(R.string.this_phone) }, s.addresses.firstOrNull().orEmpty())
+    }
+}
+
+@Composable private fun androidx.compose.foundation.layout.RowScope.Node(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, detail: String) =
+    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Box(Modifier.size(48.dp).clip(CircleShape).background(RedesColors.Chip), contentAlignment = Alignment.Center) {
+            Icon(icon, null, Modifier.size(26.dp), tint = RedesColors.AccentText)
+        }
+        Text(title, fontSize = 14.sp, textAlign = TextAlign.Center, maxLines = 2)
+        if (detail.isNotBlank()) Text(detail, color = RedesColors.Muted, fontSize = 12.sp, textAlign = TextAlign.Center)
+    }
+
+@Composable private fun Arrow() = Icon(Icons.AutoMirrored.Outlined.ArrowForward, null, Modifier.padding(top = 12.dp).size(22.dp), tint = RedesColors.Muted)
 
 @Composable private fun androidx.compose.foundation.layout.RowScope.Figure(label: String, value: String, unit: String) =
     Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -88,14 +128,6 @@ private fun num(v: Double) = if (v < 100) "%.1f".format(v).replace('.', ',') els
         Text(value, fontSize = 22.sp, fontWeight = FontWeight.Medium)
         Text(unit, color = RedesColors.Muted, fontSize = 12.sp)
     }
-
-@Composable private fun HistoryRow(r: Result, zone: ZoneId) = Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-    Column(Modifier.weight(1f)) {
-        Text(r.network.ifBlank { stringResource(linkName(r.link)) }, fontSize = 16.sp)
-        Text(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT).format(Instant.ofEpochMilli(r.at).atZone(zone)), color = RedesColors.Muted, fontSize = 13.sp)
-    }
-    Text("↓ ${num(r.down)}  ↑ ${num(r.up)}", fontSize = 15.sp)
-}
 
 /** A half ring from 0 to 1000 Mbps on a log scale (slow links still move it), with the number big in the middle. */
 @Composable private fun Gauge(mbps: Double, label: String) {

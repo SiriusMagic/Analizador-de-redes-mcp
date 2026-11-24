@@ -112,4 +112,20 @@ class LiveData(context: Context) : NetData {
     override fun history() = com.zirakusa.redes.data.History(values).list()
     override fun nearby() = phone.lastScan()
     override suspend fun speedTest() = com.zirakusa.redes.Tests.runner(values).run(phone.status()).also { main.post { McpMode.onChanged() } }
+    override fun signal() = com.zirakusa.redes.Live.signal.ring.list()
+    override fun roaming() = com.zirakusa.redes.Live.roaming(values).list()
+    override fun gatewayPings() = com.zirakusa.redes.Live.latency.log.gateway.list()
+    override fun internetPings() = com.zirakusa.redes.Live.latency.log.internet.list()
+    override suspend fun latencyTest(count: Int): Pair<List<com.zirakusa.redes.data.Ping>, List<com.zirakusa.redes.data.Ping>> {
+        val meter = com.zirakusa.redes.Live.latency
+        val runner = com.zirakusa.redes.Tests.runner(values)
+        val from = now()
+        repeat(count) {
+            if (runner.running) throw com.zirakusa.redes.data.Busy()
+            // Never on «Ahorro de datos» rules here: the AI asked with a read-and-write token, and each round is a few KB.
+            meter.once(phone.status(), runner.running, saver = false)
+            kotlinx.coroutines.delay(500)
+        }
+        return meter.log.gateway.list().filter { it.at >= from } to meter.log.internet.list().filter { it.at >= from }
+    }
 }

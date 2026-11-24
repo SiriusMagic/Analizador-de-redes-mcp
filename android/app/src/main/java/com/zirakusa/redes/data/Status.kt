@@ -7,12 +7,18 @@ import androidx.core.content.edit
  * from the matching network of the last search (0 = unknown); [maxRxMbps] / [maxTxMbps] the most the link allows (0 = unknown).
  */
 data class WifiNow(val ssid: String?, val bssid: String?, val dbm: Int, val mhz: Int, val linkMbps: Int, val standard: Int = 0,
-    val security: Security? = null, val widthMhz: Int = 0, val centerMhz: Int = 0, val maxRxMbps: Int = 0, val maxTxMbps: Int = 0) {
+    val security: Security? = null, val widthMhz: Int = 0, val centerMhz: Int = 0, val maxRxMbps: Int = 0, val maxTxMbps: Int = 0,
+    val rxMbps: Int = 0, val txMbps: Int = 0) {
     val band get() = Radio.band(mhz)
     val channel get() = Radio.channel(mhz)
     val level get() = SignalLevel.of(dbm)
     /** «Wi‑Fi 6» from Android's standard number (4 = 802.11n … 7 = 802.11be). */
     val generation get() = when (standard) { 4 -> 4; 5 -> 5; 6 -> 6; 8 -> 7; else -> 0 }
+    /** «5 GHz (80 MHz)», or only the band while the width is unknown. */
+    val bandWidth get() = (band?.label ?: "—") + if (widthMhz > 0) " ($widthMhz MHz)" else ""
+    /** The link speed now, down and up (Android 10+; before, the one speed for both). */
+    val downMbps get() = if (rxMbps > 0) rxMbps else linkMbps
+    val upMbps get() = if (txMbps > 0) txMbps else linkMbps
     fun asAccessPoint() = AccessPoint(ssid.orEmpty(), bssid.orEmpty(), mhz, dbm, security ?: Security.WPA2, widthMhz.takeIf { it > 0 } ?: 20, centerMhz)
 }
 

@@ -69,23 +69,21 @@ class Phone(context: Context) {
         val (standard, maxRx, maxTx) = if (Build.VERSION.SDK_INT >= 30)
             Triple(info.wifiStandard, info.maxSupportedRxLinkSpeedMbps.coerceAtLeast(0), info.maxSupportedTxLinkSpeedMbps.coerceAtLeast(0))
             else Triple(0, 0, 0)
+        val (rx, tx) = if (Build.VERSION.SDK_INT >= 29) info.rxLinkSpeedMbps.coerceAtLeast(0) to info.txLinkSpeedMbps.coerceAtLeast(0) else 0 to 0
         return WifiNow(ssid, bssid, info.rssi, info.frequency, info.linkSpeed, standard, seen?.security, seen?.widthMhz ?: 0,
-            seen?.centerMhz ?: 0, maxRx, maxTx)
+            seen?.centerMhz ?: 0, maxRx, maxTx, rx, tx)
     }
 
     @SuppressLint("MissingPermission") // only asked after the user allowed it
     private fun cellType(): String = runCatching {
         if (!granted(Manifest.permission.READ_PHONE_STATE)) return ""
-        when (tm?.dataNetworkType) {
-            TelephonyManager.NETWORK_TYPE_NR -> "5G"
-            TelephonyManager.NETWORK_TYPE_LTE -> "4G"
-            TelephonyManager.NETWORK_TYPE_HSPAP, TelephonyManager.NETWORK_TYPE_HSPA, TelephonyManager.NETWORK_TYPE_UMTS -> "3G"
-            TelephonyManager.NETWORK_TYPE_EDGE, TelephonyManager.NETWORK_TYPE_GPRS -> "2G"
-            else -> ""
-        }
+        CellTech.of(tm?.dataNetworkType ?: 0).takeIf { it != CellTech.UNKNOWN }?.label.orEmpty()
     }.getOrDefault("")
 
     fun canPhone() = granted(Manifest.permission.READ_PHONE_STATE)
+
+    /** «Samsung Galaxy A54»: the phone's maker and model, for «Yo» and the path diagram. */
+    fun model(): String = com.zirakusa.redes.data.Devices.model(Build.MANUFACTURER.orEmpty(), Build.MODEL.orEmpty())
 
     /**
      * The active SIMs: carrier, 2G…5G (4G+ when Android reports more than one LTE carrier joined) and signal in dBm.
@@ -103,15 +101,8 @@ class Phone(context: Context) {
 
     @SuppressLint("MissingPermission")
     private fun tech(t: TelephonyManager?): CellTech = runCatching {
-        when (t?.dataNetworkType) {
-            TelephonyManager.NETWORK_TYPE_NR -> CellTech.G5
-            TelephonyManager.NETWORK_TYPE_LTE ->
-                if (Build.VERSION.SDK_INT >= 28 && (t.serviceState?.cellBandwidths?.size ?: 0) > 1) CellTech.G4_PLUS else CellTech.G4
-            TelephonyManager.NETWORK_TYPE_HSPAP, TelephonyManager.NETWORK_TYPE_HSPA, TelephonyManager.NETWORK_TYPE_HSDPA,
-            TelephonyManager.NETWORK_TYPE_HSUPA, TelephonyManager.NETWORK_TYPE_UMTS -> CellTech.G3
-            TelephonyManager.NETWORK_TYPE_EDGE, TelephonyManager.NETWORK_TYPE_GPRS, TelephonyManager.NETWORK_TYPE_GSM -> CellTech.G2
-            else -> CellTech.UNKNOWN
-        }
+        val type = t?.dataNetworkType ?: 0
+        CellTech.of(type, if (Build.VERSION.SDK_INT >= 28 && type == TelephonyManager.NETWORK_TYPE_LTE) t?.serviceState?.cellBandwidths?.size ?: 1 else 1)
     }.getOrDefault(CellTech.UNKNOWN)
 
     /** RSRP for 4G, SS‑RSRP for 5G, else what Android gives as dBm; null when unknown (or before Android 10). */

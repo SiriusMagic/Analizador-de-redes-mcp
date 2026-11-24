@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.MonitorHeart
 import androidx.compose.material.icons.outlined.NetworkCheck
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.WifiFind
@@ -26,10 +27,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.zirakusa.redes.R
+import com.zirakusa.redes.ui.screens.DiscoverScreen
+import com.zirakusa.redes.ui.screens.HistoryScreen
 import com.zirakusa.redes.ui.screens.McpScreen
 import com.zirakusa.redes.ui.screens.NearbyScreen
 import com.zirakusa.redes.ui.screens.NetworkScreen
 import com.zirakusa.redes.ui.screens.SettingsScreen
+import com.zirakusa.redes.ui.screens.SignalScreen
 import com.zirakusa.redes.ui.screens.SpeedScreen
 import com.zirakusa.redes.ui.theme.RedesColors
 
@@ -41,6 +45,13 @@ class AppActions(
     val wifiSettings: () -> Unit = {},
     val copyLink: (String) -> Unit = {},
     val goToHub: () -> Unit = {},
+    /** Asks only for the phone permission (the SIMs), and opens the app's page in Android's settings if it was refused. */
+    val allowPhone: () -> Unit = {},
+    val appSettings: () -> Unit = {},
+    /** «Descubrir › Bluetooth»: asks for the permission, starts and stops listening. */
+    val allowBle: () -> Unit = {},
+    val bleStart: () -> Unit = {},
+    val bleStop: () -> Unit = {},
 )
 
 /** The whole app: the chosen tab with the bar at the bottom, or a page over it. */
@@ -48,18 +59,22 @@ class AppActions(
     when (state.page) {
         Page.SETTINGS -> return SettingsScreen(state)
         Page.MCP -> return McpScreen(actions.copyLink, actions.goToHub) { state.page = Page.SETTINGS }
+        Page.DISCOVER -> return DiscoverScreen(state, actions)
+        Page.HISTORY -> return HistoryScreen(state)
         Page.MAIN -> Unit
     }
     Box(Modifier.fillMaxSize().background(RedesColors.Background)) {
         when (state.tab) {
             Tab.NETWORK -> NetworkScreen(state, actions)
             Tab.SPEED -> SpeedScreen(state)
+            Tab.SIGNAL -> SignalScreen(state, actions)
             Tab.NEARBY -> NearbyScreen(state, actions)
         }
         Row(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 12.dp).clip(RoundedCornerShape(32.dp))
             .background(RedesColors.Card.copy(alpha = 0.96f)).padding(6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             TabItem(Icons.Outlined.NetworkCheck, R.string.tab_network, state.tab == Tab.NETWORK) { state.tab = Tab.NETWORK }
             TabItem(Icons.Outlined.Speed, R.string.tab_speed, state.tab == Tab.SPEED) { state.tab = Tab.SPEED }
+            TabItem(Icons.Outlined.MonitorHeart, R.string.tab_signal, state.tab == Tab.SIGNAL) { state.tab = Tab.SIGNAL }
             TabItem(Icons.Outlined.WifiFind, R.string.tab_nearby, state.tab == Tab.NEARBY) { state.tab = Tab.NEARBY }
         }
     }

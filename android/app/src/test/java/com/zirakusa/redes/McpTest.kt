@@ -4,7 +4,10 @@ import com.zirakusa.redes.data.Busy
 import com.zirakusa.redes.data.History
 import com.zirakusa.redes.data.Link
 import com.zirakusa.redes.data.MapValues
+import com.zirakusa.redes.data.Ping
 import com.zirakusa.redes.data.Result
+import com.zirakusa.redes.data.RoamEvent
+import com.zirakusa.redes.data.Sample
 import com.zirakusa.redes.data.Status
 import com.zirakusa.redes.mcp.Access
 import com.zirakusa.redes.mcp.HubLink
@@ -37,6 +40,17 @@ class McpTest {
         override fun nearby() = Nets.around
         override suspend fun speedTest(): Result { if (busy) throw Busy(); tests++; return history.add(Result(0, 1_700_000_000_000, 92.4, 18.1, 11.0, 2.0, now.link, now.networkName(), "UIO")) }
         override fun zone() = ZoneOffset.UTC
+        override fun now() = 1_700_000_300_000
+        var pings = listOf(Ping(1_700_000_290_000, 3.0), Ping(1_700_000_292_000, null))
+        var latencyRounds = 0
+        override fun signal() = listOf(Sample(1_700_000_000_000, -80), Sample(1_700_000_230_000, -60), Sample(1_700_000_298_000, -52))
+        override fun roaming() = listOf(RoamEvent(1_700_000_100_000, "Casa", "aa:bb:cc:00:00:02", "aa:bb:cc:00:00:01", -78, -52, 36, 6))
+        override fun gatewayPings() = pings
+        override fun internetPings() = pings.map { it.copy(ms = it.ms?.times(10)) }
+        override suspend fun latencyTest(count: Int): Pair<List<Ping>, List<Ping>> {
+            if (busy) throw Busy(); latencyRounds += count
+            return List(count) { Ping(it.toLong(), 2.0 + it) } to List(count) { Ping(it.toLong(), if (it == 0) null else 30.0) }
+        }
     }
     private val writer = Token("w", "Claude", "red_" + "w".repeat(40), Access.WRITE, Kind.HUB, "Redes")
     private val reader = Token("r", "Lector", "red_" + "r".repeat(40), Access.READ)
@@ -55,8 +69,9 @@ class McpTest {
     private fun names(token: Token) = rpc(token, "tools/list").getJSONArray("tools").let { t -> (0 until t.length()).map { t.getJSONObject(it).getString("name") } }
 
     @Test fun listsTheTools() {
-        assertEquals(listOf("network_status", "network_wifi_nearby", "network_speed_history", "network_speed_result", "network_speed_test"), names(writer))
-        assertEquals(listOf("network_status", "network_wifi_nearby", "network_speed_history", "network_speed_result"), names(reader))
+        assertEquals(listOf("network_status", "network_wifi_nearby", "network_speed_history", "network_speed_result", "network_speed_test",
+            "network_signal", "network_latency", "network_latency_test"), names(writer))
+        assertEquals(listOf("network_status", "network_wifi_nearby", "network_speed_history", "network_speed_result", "network_signal", "network_latency"), names(reader))
         assertEquals("redes", rpc(writer, "initialize").getJSONObject("serverInfo").getString("name"))
     }
 
@@ -101,6 +116,40 @@ class McpTest {
         data.now = Status(Link.NONE)
         assertEquals("NO_CONNECTION", code("network_speed_test"))
         assertEquals(1, data.tests)
+    }
+
+    /** «Señal» and «Latencia»: good calls, bad arguments, not found, read-only and busy; no hardware addresses go out. */
+    @Test fun signalAndLatency() {
+        val s = ok("network_signal", JSONObject().put("minutes", 1))
+        assertEquals(-52, s.getInt("signal_dbm")); assertEquals("2,4 GHz (20 MHz)", s.getString("band_label")); assertEquals(144, s.getJSONObject("link_mbps").getInt("down"))
+        assertEquals(1, s.getJSONArray("readings").length()); assertEquals(2, s.getJSONArray("readings").getJSONObject(0).getInt("seconds_ago"))
+        assertEquals(3, ok("network_signal").getJSONArray("readings").length())
+        val roam = s.getJSONArray("roaming").getJSONObject(0)
+        assertEquals(36, roam.getInt("from_channel")); assertEquals(-52, roam.getInt("after_dbm"))
+        assertFalse(s.toString().contains("aa:bb:cc"))                                           // no BSSID at all, not even yours
+        val l = ok("network_latency")
+        assertEquals(3.0, l.getJSONObject("router").getDouble("average_ms"), 0.0); assertEquals(50, l.getJSONObject("router").getInt("loss_percent"))
+        assertEquals("speed.cloudflare.com", l.getJSONObject("internet").getString("host")); assertEquals("192.168.1.1", l.getJSONObject("router").getString("address"))
+        val t = ok("network_latency_test", JSONObject().put("count", 4))
+        assertEquals(4, t.getJSONObject("router").getInt("readings")); assertEquals(25, t.getJSONObject("internet").getInt("loss_percent"))
+        assertEquals(4, data.latencyRounds)
+
+        assertEquals("BAD_ARGUMENT", code("network_signal", JSONObject().put("minutes", 0)))
+        assertEquals("BAD_ARGUMENT", code("network_signal", JSONObject().put("minutes", "5")))
+        assertEquals("BAD_ARGUMENT", code("network_latency", JSONObject().put("host", "8.8.8.8")))     // no host to choose, ever
+        assertEquals("BAD_ARGUMENT", code("network_latency_test", JSONObject().put("count", 50)))
+        assertEquals("BAD_ARGUMENT", code("network_latency_test", JSONObject().put("host", "google.com")))
+        assertEquals("READ_ONLY", code("network_latency_test", JSONObject(), reader))
+        assertEquals(4, data.latencyRounds)
+
+        data.pings = emptyList()
+        assertEquals("NOT_FOUND", code("network_latency"))
+        data.now = Nets.mobile
+        assertEquals("NOT_FOUND", code("network_signal"))
+        data.busy = true
+        assertEquals("BUSY", code("network_latency_test"))
+        data.now = Status(Link.NONE)
+        assertEquals("NO_CONNECTION", code("network_latency_test"))
     }
 
     @Test fun wrongAndPausedTokensAndHubLink() = runBlocking {

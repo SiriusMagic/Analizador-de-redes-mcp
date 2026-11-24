@@ -81,7 +81,7 @@ class RedesMathTest {
         val phases = mutableListOf<Phase>()
         val m = SpeedTest(FakeServer(80.0, 20.0, 12), seconds = 2).run { p, _, _ -> if (phases.lastOrNull() != p) phases += p }
         assertEquals(listOf(Phase.PING, Phase.DOWNLOAD, Phase.UPLOAD, Phase.DONE), phases)
-        assertEquals(12.0, m.ping, 3.0); assertEquals("UIO", m.server)
+        assertEquals(12.0, m.ping, 3.0); assertEquals("UIO", m.origin.colo); assertEquals("AS27947", m.origin.asn)
         assertTrue("down ${m.down}", m.down in 150.0..300.0)                              // 3 streams of 80 Mbps each ≈ 240
         assertTrue("up ${m.up}", m.up in 35.0..75.0)                                      // 3 × 20 ≈ 60
         val small = FakeServer(800.0)

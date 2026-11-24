@@ -19,10 +19,7 @@ import androidx.compose.material.icons.outlined.SignalCellularAlt
 import androidx.compose.material.icons.outlined.Wifi
 import androidx.compose.material.icons.outlined.WifiOff
 import androidx.compose.material.icons.outlined.VpnLock
-import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.SettingsEthernet
-import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -97,6 +94,7 @@ import com.zirakusa.redes.ui.theme.RedesColors
             if (s.privateDns.isNotBlank()) { Divider(); Item(stringResource(R.string.private_dns), null, value = s.privateDns, onClick = null) }
             Divider(); Item(stringResource(R.string.metered), null, value = stringResource(if (s.metered) R.string.yes else R.string.no), onClick = null)
         }
+        Group { Item(stringResource(R.string.discover), stringResource(R.string.discover_hint), onClick = { state.page = Page.DISCOVER }) }
         Item(stringResource(R.string.open_wifi_settings), null, onClick = actions.wifiSettings)
     }
 
@@ -126,8 +124,11 @@ private val Warn = Color(0xFFFFB547)
     Text(stringResource(R.string.cell_factors), Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp), fontSize = 18.sp)
     Group {
         when {
-            !state.canPhone -> Column(Modifier.fillMaxWidth().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                MainButton(stringResource(R.string.allow_phone), onClick = actions.allowWifi)
+            !state.canPhone -> Column(Modifier.fillMaxWidth().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Text(stringResource(if (state.phoneAsked) R.string.phone_denied else R.string.phone_why), color = RedesColors.Muted, fontSize = 14.sp)
+                if (state.phoneAsked) MainButton(stringResource(R.string.open_app_settings), onClick = actions.appSettings)
+                else MainButton(stringResource(R.string.allow_phone), onClick = actions.allowPhone)
             }
             state.sims.isEmpty() -> Text(stringResource(R.string.no_sim), Modifier.padding(20.dp), color = RedesColors.Muted)
             else -> state.sims.forEachIndexed { i, sim ->

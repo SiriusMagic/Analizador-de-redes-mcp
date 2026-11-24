@@ -3,6 +3,7 @@ package com.zirakusa.redes
 import com.zirakusa.redes.data.AccessPoint
 import com.zirakusa.redes.data.CellTech
 import com.zirakusa.redes.data.Link
+import com.zirakusa.redes.data.Origin
 import com.zirakusa.redes.data.Security
 import com.zirakusa.redes.data.Sim
 import com.zirakusa.redes.data.Status
@@ -14,7 +15,7 @@ import kotlinx.coroutines.delay
 class FakeServer(private val mbps: Double = 80.0, private val upMbps: Double = 20.0, private val pingMs: Long = 12) : Transport {
     var downloaded = 0L
     override suspend fun ping(): Double { delay(pingMs); return pingMs.toDouble() }
-    override suspend fun download(bytes: Long, got: (Int) -> Unit): String { pour(bytes, mbps) { downloaded += it; got(it) }; return "UIO" }
+    override suspend fun download(bytes: Long, got: (Int) -> Unit): Origin { pour(bytes, mbps) { downloaded += it; got(it) }; return Origin("UIO", "190.152.10.20", "AS27947") }
     override suspend fun upload(bytes: Long, sent: (Int) -> Unit) = pour(bytes, upMbps, sent)
     private suspend fun pour(bytes: Long, rate: Double, each: (Int) -> Unit) {
         val piece = 65_536

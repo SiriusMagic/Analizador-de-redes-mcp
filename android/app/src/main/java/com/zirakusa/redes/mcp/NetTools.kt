@@ -2,8 +2,12 @@ package com.zirakusa.redes.mcp
 
 import com.zirakusa.redes.data.AccessPoint
 import com.zirakusa.redes.data.Channels
+import com.zirakusa.redes.data.LatencyStats
 import com.zirakusa.redes.data.Link
+import com.zirakusa.redes.data.Ping
 import com.zirakusa.redes.data.Result
+import com.zirakusa.redes.data.RoamEvent
+import com.zirakusa.redes.data.Sample
 import com.zirakusa.redes.data.Status
 import com.zirakusa.redes.data.WifiFactors
 import org.json.JSONArray
@@ -20,6 +24,15 @@ interface NetData {
     /** Runs a speed test and keeps it; [com.zirakusa.redes.data.Busy] when one is running. */
     suspend fun speedTest(): Result
     fun zone(): ZoneId = ZoneId.systemDefault()
+    fun now(): Long = System.currentTimeMillis()
+    /** «Señal»: the Wi‑Fi readings in memory (while Redes is open) and the access point changes of your own network. */
+    fun signal(): List<Sample> = emptyList()
+    fun roaming(): List<RoamEvent> = emptyList()
+    /** «Latencia»: the router's and Internet's readings in memory. */
+    fun gatewayPings(): List<Ping> = emptyList()
+    fun internetPings(): List<Ping> = emptyList()
+    /** Takes [count] latency rounds now (router and speed.cloudflare.com); [com.zirakusa.redes.data.Busy] while a speed test runs. */
+    suspend fun latencyTest(count: Int): Pair<List<Ping>, List<Ping>> = emptyList<Ping>() to emptyList()
 }
 
 /** An expected failure the AI can read (structuredContent.error.code), never a crash. */
@@ -49,6 +62,13 @@ object NetTools {
             schema(listOf("id"), "id" to prop("integer", "From network_speed_history."))),
         Tool("network_speed_test", "Runs a speed test now (about 20 seconds; uses up to 120 MB, 30 MB on mobile data with data saver) and keeps it.",
             true, schema(emptyList(), "allow_mobile" to prop("boolean", "Also run on mobile data (it uses the user's data). Default false."))),
+        Tool("network_signal", "The connected Wi‑Fi's signal now (dBm, band and channel width, link speed down/up) with its readings of the last " +
+            "minutes (taken every ~2 s while Redes is open) and the last access point changes (roaming) of the user's own network.", false,
+            schema(emptyList(), "minutes" to prop("integer", "1–5, default 5: how far back the readings go."))),
+        Tool("network_latency", "Latency recorded while «Señal» was open: to the router (local network) and to Internet (speed.cloudflare.com), " +
+            "with average, jitter, best, worst and packet loss %.", false, schema(emptyList())),
+        Tool("network_latency_test", "Measures latency now: [count] rounds to the router and to speed.cloudflare.com (a few KB of data).", true,
+            schema(emptyList(), "count" to prop("integer", "3–20, default 10."))),
     )
 
     fun available(access: Access) = tools.filter { !it.write || access == Access.WRITE }
@@ -71,6 +91,19 @@ object NetTools {
                 JSONObject().put("test", result(r, data.zone()))
             }
             "network_speed_test" -> test(args, data)
+            "network_signal" -> signal(data, range(args, "minutes", 5, 1..5))
+            "network_latency" -> {
+                val g = data.gatewayPings(); val i = data.internetPings()
+                if (g.isEmpty() && i.isEmpty()) throw ToolFailure("NOT_FOUND", "No latency readings yet: the user can open Redes › Señal, or call network_latency_test.")
+                latency(data.status(), g, i, data)
+            }
+            "network_latency_test" -> {
+                val n = range(args, "count", 10, 3..20)
+                val s = data.status()
+                if (s.link == Link.NONE) throw ToolFailure("NO_CONNECTION", "The phone has no connection now.")
+                val (g, i) = try { data.latencyTest(n) } catch (_: com.zirakusa.redes.data.Busy) { throw ToolFailure("BUSY", "A speed test is running on the phone.") }
+                latency(s, g, i, data)
+            }
             else -> throw ToolFailure("UNKNOWN_TOOL", "No tool named $name.")
         }
     }
@@ -120,6 +153,41 @@ object NetTools {
         .put("at", Instant.ofEpochMilli(r.at).atZone(zone).toLocalDateTime().withNano(0).toString())
         .put("download_mbps", r.down).put("upload_mbps", r.up).put("ping_ms", r.ping).put("jitter_ms", r.jitter).put("link", r.link.key)
         .put("network", r.network).put("server", r.server).put("good_for", JSONArray(r.uses.map { it.key }))
+
+    /** The connected Wi‑Fi only; access points by channel and signal, never their hardware addresses. */
+    private fun signal(data: NetData, minutes: Int): JSONObject {
+        val w = data.status().wifi ?: throw ToolFailure("NOT_FOUND", "The phone is not on Wi‑Fi now.")
+        val now = data.now()
+        val samples = data.signal().filter { now - it.at in 0..minutes * 60_000L }
+        val o = JSONObject().put("name", w.ssid ?: JSONObject.NULL).put("signal_dbm", w.dbm).put("signal", w.level.key)
+            .put("band", w.band?.key ?: JSONObject.NULL).put("width_mhz", if (w.widthMhz > 0) w.widthMhz else JSONObject.NULL).put("band_label", w.bandWidth)
+            .put("channel", w.channel).put("link_mbps", JSONObject().put("down", w.downMbps).put("up", w.upMbps))
+            .put("readings", JSONArray(samples.map { JSONObject().put("seconds_ago", (now - it.at) / 1000).put("dbm", it.dbm) }))
+        if (samples.isNotEmpty()) o.put("readings_min_dbm", samples.minOf { it.dbm }).put("readings_max_dbm", samples.maxOf { it.dbm })
+            .put("readings_avg_dbm", Math.round(samples.map { it.dbm }.average()))
+        else o.put("note", "No readings in memory: they are taken while Redes is open.")
+        o.put("roaming", JSONArray(data.roaming().take(10).map { e: RoamEvent ->
+            JSONObject().put("at", Instant.ofEpochMilli(e.at).atZone(data.zone()).toLocalDateTime().withNano(0).toString()).put("network", e.ssid)
+                .put("from_channel", e.fromChannel).put("to_channel", e.toChannel).put("before_dbm", e.dbmBefore).put("after_dbm", e.dbmAfter)
+        }))
+        return o
+    }
+
+    private fun latency(s: Status, g: List<Ping>, i: List<Ping>, data: NetData): JSONObject {
+        fun stats(p: List<Ping>) = LatencyStats.of(p).let { t ->
+            JSONObject().put("readings", t.count).put("average_ms", t.average ?: JSONObject.NULL).put("jitter_ms", t.jitter ?: JSONObject.NULL)
+                .put("min_ms", t.min ?: JSONObject.NULL).put("max_ms", t.max ?: JSONObject.NULL).put("loss_percent", t.lossPercent)
+        }
+        return JSONObject().put("router", stats(g).put("address", s.gateway)).put("internet", stats(i).put("host", "speed.cloudflare.com"))
+            .put("at", Instant.ofEpochMilli(data.now()).atZone(data.zone()).toLocalDateTime().withNano(0).toString())
+    }
+
+    private fun range(args: JSONObject, key: String, default: Int, ok: IntRange): Int {
+        if (!args.has(key)) return default
+        val n = (args.opt(key) as? Int) ?: (args.opt(key) as? Long)?.toInt() ?: throw ToolFailure("BAD_ARGUMENT", "«$key» is a whole number.")
+        if (n !in ok) throw ToolFailure("BAD_ARGUMENT", "«$key» is ${ok.first}–${ok.last}.")
+        return n
+    }
 
     private fun limit(args: JSONObject, default: Int, max: Int): Int {
         if (!args.has("limit")) return default

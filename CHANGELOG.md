@@ -1,3 +1,25 @@
+# Redes 0.3.0
+
+- Nueva pestaña **Señal**: el Wi‑Fi conectado con banda y ancho («5 GHz (80 MHz)»), canal, señal en dBm y velocidad PHY
+  ↓/↑. Gráfico de la señal de los últimos 5 minutos (una lectura cada 2 s mientras Redes está abierta, solo en memoria).
+- **Latencia** (en Señal): al router de tu red (un toque TCP corto, solo direcciones locales) y a Internet, medida solo
+  contra speed.cloudflare.com; promedio, jitter y pérdida de paquetes, con gráfico de los últimos 3 minutos. No mide
+  durante una prueba de velocidad; con datos móviles y ahorro de datos, Internet cada 10 s.
+- **Roaming de punto de acceso**: registro de los cambios de punto de acceso de tu propia red (hora, canal y señal antes y
+  después), guardado solo en el teléfono. Sin cambios: «Aún no se han registrado cambios en puntos de acceso».
+- **Descubrir** (desde Red): pestaña Wi‑Fi con los dispositivos de tu red local (/24): «Portal» para el router, «Yo» para
+  este teléfono y «Genérico» (o su nombre local) para el resto; contador y botón para ordenar. Pestaña Bluetooth con los
+  dispositivos LE cercanos (nombre o «Genérico», «LE», dirección y dBm), solo mientras está abierta. Nada se guarda ni sale.
+- **Velocidad**: diagrama del camino Internet (red del proveedor e IP pública si Cloudflare la dio en la última prueba, solo
+  en memoria) → Punto de acceso → este teléfono (modelo e IP local).
+- **Historial de prueba de velocidad**: cada prueba como tarjeta con fecha, tipo de conexión, barra azul de descarga y
+  morada de subida a la misma escala, e «Internet → modelo | ms». Página completa con búsqueda.
+- **Factores de velocidad celular**: el tipo de red (2G/3G/4G/4G+/5G) sale de una tabla pura con pruebas; el permiso de
+  teléfono se pide aparte, explicando para qué, y si se niega se indica cómo darlo en Ajustes.
+- Modo MCP: `network_signal` y `network_latency` (lectura) y `network_latency_test` (lectura y escritura). Nunca salen
+  direcciones de hardware (BSSID ni Bluetooth) ni las listas de Descubrir.
+- 31 pruebas.
+
 # Redes 0.2.2
 
 - **Conectar todas** (Gateway Hub 0.0.21): con un toque en el Hub se activa aquí «Redireccionar a Hub» y la app queda

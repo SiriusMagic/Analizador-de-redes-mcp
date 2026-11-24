@@ -39,7 +39,21 @@ data class WifiFactors(val band: Band?, val widthMhz: Int, val generation: Int, 
 
 /** Mobile network kinds, with the signal (dBm) under which each is weak: RSRP for 4G, SS‑RSRP for 5G, RSCP / RSSI before. */
 enum class CellTech(val label: String, val weakBelow: Int, val old: Boolean) {
-    G2("2G", -95, true), G3("3G", -95, true), G4("4G", -95, false), G4_PLUS("4G+", -95, false), G5("5G", -100, false), UNKNOWN("—", -95, false)
+    G2("2G", -95, true), G3("3G", -95, true), G4("4G", -95, false), G4_PLUS("4G+", -95, false), G5("5G", -100, false), UNKNOWN("—", -95, false);
+
+    companion object {
+        /**
+         * From Android's data network type (TelephonyManager.NETWORK_TYPE_*, by number so this stays pure) and how many
+         * carriers are joined: LTE with more than one is 4G+.
+         */
+        fun of(type: Int, carriers: Int = 1): CellTech = when (type) {
+            20 -> G5                                   // NR
+            13, 19 -> if (carriers > 1 || type == 19) G4_PLUS else G4 // LTE, LTE_CA
+            3, 5, 6, 8, 9, 10, 12, 14, 15, 17 -> G3    // UMTS, EVDO 0/A/B, HSDPA, HSUPA, HSPA, EHRPD, HSPAP, TD_SCDMA
+            1, 2, 4, 7, 11, 16 -> G2                   // GPRS, EDGE, CDMA, 1xRTT, IDEN, GSM
+            else -> UNKNOWN
+        }
+    }
 }
 
 /** One active SIM: slot (1, 2…), carrier, kind and signal (null when Android does not say). */

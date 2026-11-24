@@ -1,9 +1,11 @@
 package com.zirakusa.redes
 
+import com.zirakusa.redes.data.Origin
 import com.zirakusa.redes.data.Transport
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -26,6 +28,9 @@ object Cloudflare : Transport {
         .writeTimeout(15, TimeUnit.SECONDS).followRedirects(false).build()
     private val noise = Random.nextBytes(PIECE)
 
+    /** «Latencia › Internet»: one tiny request like the test's pings, or null when it does not answer in 3 s. */
+    suspend fun latency(): Double? = withTimeoutOrNull(3_000) { runCatching { ping() }.getOrNull() }
+
     override suspend fun ping(): Double = withContext(Dispatchers.IO) {
         val start = System.nanoTime()
         http.newCall(Request.Builder().url(DOWN + "0").build()).execute().use { r ->
@@ -35,7 +40,7 @@ object Cloudflare : Transport {
         (System.nanoTime() - start) / 1_000_000.0
     }
 
-    override suspend fun download(bytes: Long, got: (Int) -> Unit): String = withContext(Dispatchers.IO) {
+    override suspend fun download(bytes: Long, got: (Int) -> Unit): Origin = withContext(Dispatchers.IO) {
         http.newCall(Request.Builder().url(DOWN + bytes).build()).execute().use { r ->
             if (!r.isSuccessful) throw IOException("HTTP ${r.code}")
             val source = r.body.byteStream()
@@ -46,7 +51,8 @@ object Cloudflare : Transport {
                 if (n < 0) break
                 got(n)
             }
-            r.header("cf-meta-colo").orEmpty().filter { it.isLetter() }.take(4)
+            // Only the place, your public address and your provider's network number; the other headers (city, position…) are not read.
+            Origin.of(r.header("cf-meta-colo"), r.header("cf-meta-ip"), r.header("cf-meta-asn"))
         }
     }
 

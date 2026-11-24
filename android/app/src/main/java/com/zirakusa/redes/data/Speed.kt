@@ -84,3 +84,26 @@ class History(private val kv: KeyValues) {
 
     companion object { const val MAX = 200; private const val KEY = "history" }
 }
+
+/** «Historial de prueba de velocidad»: the search and the bars, pure. */
+object HistoryView {
+    /** Words of the search found in the network's name, the kind («wifi», «celular», «móvil»…) or the server. Accents do not matter. */
+    fun search(list: List<Result>, query: String): List<Result> {
+        val words = plain(query).split(' ').filter { it.isNotBlank() }
+        if (words.isEmpty()) return list
+        return list.filter { r ->
+            val text = plain(listOf(r.network, r.server, r.link.key, when (r.link) {
+                Link.WIFI -> "wi-fi wifi"; Link.CELLULAR -> "celular movil datos mobile"; Link.ETHERNET -> "cable ethernet"; Link.VPN -> "vpn"; Link.NONE -> ""
+            }).joinToString(" "))
+            words.all { it in text }
+        }
+    }
+
+    /** The top of the bars: the fastest download or upload of the list (at least 1 Mbps). */
+    fun top(list: List<Result>) = maxOf(1.0, list.maxOfOrNull { maxOf(it.down, it.up) } ?: 0.0)
+
+    /** How long a bar is, 0–1 (a tiny one still shows). */
+    fun bar(mbps: Double, top: Double) = if (mbps <= 0) 0f else (mbps / top).toFloat().coerceIn(0.02f, 1f)
+
+    private fun plain(s: String) = java.text.Normalizer.normalize(s.lowercase(), java.text.Normalizer.Form.NFD).filter { it.code !in 0x300..0x36f }
+}
