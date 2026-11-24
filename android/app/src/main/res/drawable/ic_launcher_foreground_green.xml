@@ -1,0 +1,7 @@
+<!-- Redes: three green Wi-Fi arcs over a speed needle, on a dark tile. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:strokeColor="#A5D6A7" android:strokeWidth="5" android:strokeLineCap="round" android:fillColor="#00000000"
+        android:pathData="M30,52a34,34 0,0 1,48 0M38,60a22,22 0,0 1,32 0M46,68a10,10 0,0 1,16 0" />
+    <path android:fillColor="#FFFFFF" android:pathData="M54,74m-4,0a4,4 0,1 1,8 0a4,4 0,1 1,-8 0" />
+</vector>
