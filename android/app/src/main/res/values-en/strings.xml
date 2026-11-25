@@ -157,11 +157,10 @@
     <string name="check_ok">OK</string>
     <string name="check_warn">Warning</string>
     <string name="icon_title">App icon</string>
-    <string name="icon_original">Original</string>
-    <string name="icon_light">Light</string>
-    <string name="icon_gold">Gold</string>
-    <string name="icon_blue">Blue</string>
-    <string name="icon_green">Green</string>
+    <string name="icon_lens">Magnifier</string>
+    <string name="icon_neon">Neon</string>
+    <string name="icon_bubble">Bubble</string>
+    <string name="icon_pixel">Pixel</string>
     <string name="icon_hint">Changes the home-screen icon. Some launchers take a few seconds to show it.</string>
     <string name="tab_signal">Signal</string>
     <string name="signal_no_wifi">Connect to a Wi‑Fi to see its signal. Latency is measured anyway.</string>

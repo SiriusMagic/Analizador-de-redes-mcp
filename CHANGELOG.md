@@ -1,3 +1,9 @@
+# Redes 0.3.1
+
+- **Iconos nuevos**: Lupa (el de fábrica), Neón, Burbuja y Píxel, en Ajustes › Icono de la app. Se quitan los anteriores;
+  si tenías uno elegido, pasa solo al nuevo que ocupa su lugar (y quien tenía «Verde», a la Lupa).
+- 32 pruebas.
+
 # Redes 0.3.0
 
 - Nueva pestaña **Señal**: el Wi‑Fi conectado con banda y ancho («5 GHz (80 MHz)»), canal, señal en dBm y velocidad PHY

@@ -53,7 +53,7 @@ import com.zirakusa.redes.ui.theme.RedesColors
             }
             Item(stringResource(R.string.mcp_title), "$status · ${stringResource(R.string.mcp_settings_hint)}") { state.page = Page.MCP }
         }
-        IconCard(RedesColors.Card, RedesColors.Text, RedesColors.Muted, RedesColors.Accent, androidx.compose.ui.graphics.Color(0xFF07160D))
+        IconCard(RedesColors.Card, RedesColors.Text, RedesColors.Muted, RedesColors.Accent)
         ThemeCard(state.themeMode, state.accent, state::changeTheme, state::changeAccent)
         Caption(stringResource(R.string.about))
         Group {

@@ -15,7 +15,7 @@ class AppIconTest {
     private fun state(icon: AppIcon) = context.packageManager.getComponentEnabledSetting(ComponentName(context, "com.zirakusa.redes.${icon.alias}"))
 
     @Test fun oneIconAtATime() {
-        AppIcon.load(context); assertEquals(AppIcon.ORIGINAL, AppIcon.current)
+        AppIcon.load(context); assertEquals(AppIcon.LENS, AppIcon.current)
         AppIcon.entries.forEach { icon ->
             AppIcon.apply(context, icon)
             assertEquals(icon, AppIcon.current)
@@ -25,7 +25,17 @@ class AppIconTest {
         }
         AppIcon.entries.forEach { context.packageManager.setComponentEnabledSetting(ComponentName(context, "com.zirakusa.redes.${it.alias}"),
             PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP) }
-        AppIcon.load(context); assertEquals(AppIcon.ORIGINAL, AppIcon.current)      // never without an icon
-        assertEquals(PackageManager.COMPONENT_ENABLED_STATE_ENABLED, state(AppIcon.ORIGINAL))
+        AppIcon.load(context); assertEquals(AppIcon.LENS, AppIcon.current)      // never without an icon
+        assertEquals(PackageManager.COMPONENT_ENABLED_STATE_ENABLED, state(AppIcon.LENS))
+    }
+
+    /** Whoever had the retired fifth icon («Verde») enabled gets «Lupa», and «Verde» is turned off. */
+    @Test fun retiredIconGoesBackToLens() {
+        val pm = context.packageManager
+        AppIcon.entries.forEach { pm.setComponentEnabledSetting(ComponentName(context, "com.zirakusa.redes.${it.alias}"), PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP) }
+        val green = ComponentName(context, "com.zirakusa.redes.${AppIcon.RETIRED}")
+        pm.setComponentEnabledSetting(green, PackageManager.COMPONENT_ENABLED_STATE_ENABLED, PackageManager.DONT_KILL_APP)
+        AppIcon.load(context)
+        assertEquals(AppIcon.LENS, AppIcon.current); assertEquals(PackageManager.COMPONENT_ENABLED_STATE_DISABLED, pm.getComponentEnabledSetting(green))
     }
 }

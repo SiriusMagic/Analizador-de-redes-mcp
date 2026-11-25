@@ -32,28 +32,36 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
- * The app's launcher icons: its own drawing in five colour styles. Each is an `activity-alias` in the manifest; exactly
- * one is enabled. Alias names never change (Android keeps the enabled state by name).
+ * The app's launcher icons: the Wi‑Fi waves in four styles, «Lupa» by default (since 0.3.1). Each is an `activity-alias`
+ * in the manifest; exactly one is enabled. Alias names never change (Android keeps the enabled state by name), so the old
+ * colour aliases now carry the new pictures, and the fifth one («Verde», [RETIRED]) stays in the manifest, always off.
  */
 enum class AppIcon(val alias: String, val label: Int, val preview: Int, val background: Long) {
-    ORIGINAL("Home", R.string.icon_original, R.drawable.ic_launcher_foreground, 0),
-    LIGHT("HomeClaro", R.string.icon_light, R.drawable.ic_launcher_foreground_light, 0xFFF2F2F2),
-    GOLD("HomeDorado", R.string.icon_gold, R.drawable.ic_launcher_foreground_gold, 0xFFF5C518),
-    BLUE("HomeAzul", R.string.icon_blue, R.drawable.ic_launcher_foreground_blue, 0xFF1565C0),
-    GREEN("HomeVerde", R.string.icon_green, R.drawable.ic_launcher_foreground_green, 0xFF1B5E20);
+    LENS("Home", R.string.icon_lens, R.mipmap.ic_launcher_lens_foreground, 0xFF02A3FC),
+    NEON("HomeClaro", R.string.icon_neon, R.mipmap.ic_launcher_neon_foreground, 0xFF00104E),
+    BUBBLE("HomeDorado", R.string.icon_bubble, R.mipmap.ic_launcher_bubble_foreground, 0xFF1AB8F0),
+    PIXEL("HomeAzul", R.string.icon_pixel, R.mipmap.ic_launcher_pixel_foreground, 0xFF00013A);
 
     private fun component(context: Context) = ComponentName(context.packageName, "com.zirakusa.redes.$alias")
     fun isEnabled(context: Context): Boolean = when (context.packageManager.getComponentEnabledSetting(component(context))) {
         PackageManager.COMPONENT_ENABLED_STATE_ENABLED -> true
-        PackageManager.COMPONENT_ENABLED_STATE_DEFAULT -> this == ORIGINAL           // as the manifest says
+        PackageManager.COMPONENT_ENABLED_STATE_DEFAULT -> this == LENS           // as the manifest says
         else -> false
     }
 
     companion object {
-        var current by mutableStateOf(ORIGINAL); private set
+        var current by mutableStateOf(LENS); private set
 
-        /** Reads the enabled one; if none is (an odd update), the original comes back so the app never loses its icon. */
-        fun load(context: Context) { val on = entries.firstOrNull { it.isEnabled(context) }; if (on == null) apply(context, ORIGINAL) else current = on }
+        /** The alias of the fifth icon of 0.3.0 («Verde»): never offered again, always turned off. */
+        const val RETIRED = "HomeVerde"
+        private fun retired(context: Context) = ComponentName(context.packageName, "com.zirakusa.redes.$RETIRED")
+
+        /** Reads the enabled one. If none is, or the retired «Verde» still is, «Lupa» comes back: never no icon, never two. */
+        fun load(context: Context) {
+            val on = entries.firstOrNull { it.isEnabled(context) }
+            val old = context.packageManager.getComponentEnabledSetting(retired(context)) == PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+            if (on == null || old) apply(context, on ?: LENS) else current = on
+        }
 
         /** Enables [icon] first and then disables the others, without closing the app. Launchers refresh on their own. */
         fun apply(context: Context, icon: AppIcon) {
@@ -62,13 +70,14 @@ enum class AppIcon(val alias: String, val label: Int, val preview: Int, val back
             entries.filter { it != icon }.forEach {
                 pm.setComponentEnabledSetting(it.component(context), PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP)
             }
+            pm.setComponentEnabledSetting(retired(context), PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP)
             current = icon
         }
     }
 }
 
-/** «Icono de la app»: the five icons; a tap changes the home-screen icon. */
-@Composable fun IconCard(card: Color, text: Color, muted: Color, accent: Color, original: Color = Color(0xFF1A1A1A)) {
+/** «Icono de la app»: the four icons; a tap changes the home-screen icon. */
+@Composable fun IconCard(card: Color, text: Color, muted: Color, accent: Color) {
     val context = LocalContext.current
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(card).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(stringResource(R.string.icon_title), color = text, fontSize = 18.sp)
@@ -78,7 +87,7 @@ enum class AppIcon(val alias: String, val label: Int, val preview: Int, val back
                 val name = stringResource(icon.label)
                 Column(Modifier.clip(RoundedCornerShape(14.dp)).clickable(onClickLabel = name) { AppIcon.apply(context, icon) }.padding(2.dp),
                     horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Box(Modifier.size(52.dp).clip(RoundedCornerShape(14.dp)).background(if (icon.background == 0L) original else Color(icon.background))
+                    Box(Modifier.size(52.dp).clip(RoundedCornerShape(14.dp)).background(Color(icon.background))
                         .border(if (on) 3.dp else 0.dp, if (on) accent else Color.Transparent, RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) {
                         Image(painterResource(icon.preview), null, Modifier.size(52.dp))
                     }

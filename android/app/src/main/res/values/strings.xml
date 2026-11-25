@@ -158,11 +158,10 @@
     <string name="check_ok">Bien</string>
     <string name="check_warn">Aviso</string>
     <string name="icon_title">Icono de la app</string>
-    <string name="icon_original">Original</string>
-    <string name="icon_light">Claro</string>
-    <string name="icon_gold">Dorado</string>
-    <string name="icon_blue">Azul</string>
-    <string name="icon_green">Verde</string>
+    <string name="icon_lens">Lupa</string>
+    <string name="icon_neon">Neón</string>
+    <string name="icon_bubble">Burbuja</string>
+    <string name="icon_pixel">Píxel</string>
     <string name="icon_hint">Cambia el icono de la pantalla de inicio. Algunos lanzadores tardan unos segundos en mostrarlo.</string>
     <string name="tab_signal">Señal</string>
     <string name="signal_no_wifi">Conéctate a un Wi‑Fi para ver su señal. La latencia se mide igual.</string>
