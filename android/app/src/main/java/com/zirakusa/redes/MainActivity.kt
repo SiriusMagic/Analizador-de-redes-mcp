@@ -60,7 +60,7 @@ class MainActivity : ComponentActivity() {
         McpMode.onChanged = { state.reload() }
         McpMode.load(this)
         val actions = AppActions(allowWifi = ::askWifi, scan = { if (!phone.scan()) Toast.makeText(this, R.string.scan_later, Toast.LENGTH_SHORT).show() },
-            wifiSettings = { startActivity(Intent(Settings.ACTION_WIFI_SETTINGS)) }, copyLink = ::copyLink, goToHub = ::goToHub,
+            wifiSettings = { startActivity(Intent(Settings.ACTION_WIFI_SETTINGS)) }, openArka = ::openArka,
             allowPhone = { askPhone.launch(Manifest.permission.READ_PHONE_STATE) },
             appSettings = { startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null))) },
             allowBle = { askBle.launch(ble.permission) },
@@ -77,7 +77,7 @@ class MainActivity : ComponentActivity() {
                 val light = RedesColors.isLight
                 SideEffect { WindowCompat.getInsetsController(window, window.decorView).run { isAppearanceLightStatusBars = light; isAppearanceLightNavigationBars = light } }
                 BackHandler(state.page != Page.MAIN || state.tab != Tab.NETWORK) {
-                    when (state.page) { Page.MCP -> state.page = Page.SETTINGS; Page.SETTINGS, Page.DISCOVER, Page.HISTORY -> state.page = Page.MAIN
+                    when (state.page) { Page.SETTINGS, Page.DISCOVER, Page.HISTORY -> state.page = Page.MAIN
                         Page.MAIN -> state.tab = Tab.NETWORK }
                 }
                 RedesApp(state, actions)
@@ -98,15 +98,10 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= 33) add(Manifest.permission.NEARBY_WIFI_DEVICES)
     }.toTypedArray())
 
-    private fun copyLink(link: String) {
-        getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText("Redes MCP", link))
-        Toast.makeText(this, R.string.copied, Toast.LENGTH_SHORT).show()
-    }
 
-    /** «Ir al Hub»: copies the hub's link (in case it must be pasted) and opens the Gateway Hub app. */
-    private fun goToHub() {
-        getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText("Redes › Gateway Hub", McpMode.hubLink()))
+    /** «Modo MCP» in Ajustes: it is turned on, allowed on the phone and given tokens in Arka, so this opens Arka. */
+    private fun openArka() {
         val open = packageManager.getLaunchIntentForPackage("com.zirakusa.gatewayhub")
-        if (open != null) startActivity(open) else Toast.makeText(this, R.string.mcp_paste_in_hub, Toast.LENGTH_LONG).show()
+        if (open != null) startActivity(open) else Toast.makeText(this, R.string.mcp_no_arka, Toast.LENGTH_LONG).show()
     }
 }

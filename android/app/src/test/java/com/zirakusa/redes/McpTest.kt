@@ -11,7 +11,6 @@ import com.zirakusa.redes.data.Sample
 import com.zirakusa.redes.data.Status
 import com.zirakusa.redes.mcp.Access
 import com.zirakusa.redes.mcp.HubLink
-import com.zirakusa.redes.mcp.Kind
 import com.zirakusa.redes.mcp.McpHandler
 import com.zirakusa.redes.mcp.NetData
 import com.zirakusa.redes.mcp.Token
@@ -26,7 +25,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.time.ZoneOffset
 
-/** Redes' MCP: tools list, good calls, bad arguments, not found, mobile data and busy, read-only tokens, wrong and paused tokens, hub link. */
+/** Redes' MCP: tools list, good calls, bad arguments, not found, mobile data and busy, read-only tokens, wrong tokens, hub link. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class McpTest {
@@ -52,10 +51,9 @@ class McpTest {
             return List(count) { Ping(it.toLong(), 2.0 + it) } to List(count) { Ping(it.toLong(), if (it == 0) null else 30.0) }
         }
     }
-    private val writer = Token("w", "Claude", "red_" + "w".repeat(40), Access.WRITE, Kind.HUB, "Redes")
-    private val reader = Token("r", "Lector", "red_" + "r".repeat(40), Access.READ)
-    private val paused = Token("p", "Viejo", "red_" + "p".repeat(40), Access.WRITE, paused = true)
-    private val handler = McpHandler({ listOf(writer, reader, paused) }, data, "0.1.0")
+    private val writer = Token("red_" + "w".repeat(40), Access.WRITE)
+    private val reader = Token("red_" + "r".repeat(40), Access.READ)
+    private val handler = McpHandler({ listOf(writer, reader) }, data, "0.1.0")
 
     private fun rpc(token: Token, method: String, params: JSONObject = JSONObject()) = runBlocking {
         JSONObject(handler.handle("POST", "/mcp", mapOf("Authorization" to "Bearer ${token.secret}"), emptyMap(),
@@ -154,32 +152,42 @@ class McpTest {
 
     @Test fun wrongAndPausedTokensAndHubLink() = runBlocking {
         val body = """{"jsonrpc":"2.0","id":1,"method":"tools/list"}"""
-        assertEquals(401, handler.handle("POST", "/mcp", mapOf("Authorization" to "Bearer ${paused.secret}"), emptyMap(), body).status)
+        assertEquals(401, handler.handle("POST", "/mcp", mapOf("Authorization" to "Bearer wrong_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"), emptyMap(), body).status)
         assertEquals(401, handler.handle("POST", "/mcp", mapOf("Authorization" to "Bearer red_wrong"), emptyMap(), body).status)
         assertEquals(401, handler.handle("POST", "/mcp", emptyMap(), emptyMap(), body).status)
         assertEquals(200, handler.handle("POST", "/mcp", emptyMap(), mapOf("token" to reader.secret), body).status)
         assertTrue(Token.secret().startsWith("red_"))
         assertEquals("NOT_SAME_DEVELOPER", HubLink.answer(false).getString("error"))
         assertEquals("REDIRECT_OFF", HubLink.answer(true).getString("error"))
-        // «Conectar todas» and Lucía's tools: only for the same developer, and tools only with «Redireccionar a Hub» on.
         assertEquals("NOT_SAME_DEVELOPER", HubLink.connect(false).getString("error"))
         assertEquals("NOT_SAME_DEVELOPER", HubLink.tool(false, "{}").getString("error"))
-        assertEquals("REDIRECT_OFF", HubLink.tool(true, "{}").getString("error"))
+        // Only the same developer (Arka) may connect, disconnect, read the status or run a tool.
+        listOf(HubLink.disconnect(false), HubLink.status(false)).forEach { assertEquals("NOT_SAME_DEVELOPER", it.getString("error")) }
     }
 
-    /** Lucía runs a tool on the phone through the same handler, only while «Redireccionar a Hub» is on. */
+    /** Lucía runs a tool on the phone through the same handler, with or without the public link; Arka turns that on and off. */
     @Test fun luciaRunsToolsOnThePhone() {
         val relay = com.zirakusa.redes.mcp.McpMode.relayUrl
         com.zirakusa.redes.mcp.McpMode.relayUrl = ""                                             // no relay in tests
         com.zirakusa.redes.mcp.McpMode.load(org.robolectric.RuntimeEnvironment.getApplication())
-        com.zirakusa.redes.mcp.McpMode.redirect(false)
-        assertEquals(null, com.zirakusa.redes.mcp.McpMode.local("{}"))
-        HubLink.connect(true); assertTrue(com.zirakusa.redes.mcp.McpMode.hubRedirect)                // «Conectar todas»
+        com.zirakusa.redes.mcp.McpMode.turnRemote(false)
         val list = JSONObject(com.zirakusa.redes.mcp.McpMode.local("""{"jsonrpc":"2.0","id":1,"method":"tools/list"}""")!!)
         assertTrue(list.getJSONObject("result").getJSONArray("tools").length() > 0)
         val viaProvider = JSONObject(HubLink.tool(true, """{"jsonrpc":"2.0","id":2,"method":"tools/list"}""").getString("response"))
         assertEquals(2, viaProvider.getInt("id"))
-        com.zirakusa.redes.mcp.McpMode.redirect(false)
+        assertEquals("BAD_REQUEST", HubLink.tool(true, "").getString("error"))
+        assertEquals("NOT_SAME_DEVELOPER", HubLink.tool(false, "{}").getString("error"))
+        assertTrue(HubLink.status(true).containsKey("remote"))
+        HubLink.connect(true); assertTrue(com.zirakusa.redes.mcp.McpMode.remote)                 // Arka › «Activar MCP»
+        assertFalse(HubLink.disconnect(true).getBoolean("remote")); assertFalse(com.zirakusa.redes.mcp.McpMode.remote)
         com.zirakusa.redes.mcp.McpMode.relayUrl = relay                                          // as the other tests expect
+    }
+
+    /** The hub's token from before Arka took over is kept, so the hub's link keeps working. */
+    @Test fun theOldHubTokenIsKept() {
+        val old = """[{"id":"a","secret":"${"l".repeat(44)}","kind":"llm"},{"id":"b","secret":"${"h".repeat(44)}","kind":"redirect"}]"""
+        assertEquals("h".repeat(44), com.zirakusa.redes.mcp.Legacy.redirectSecret(old))
+        assertEquals(null, com.zirakusa.redes.mcp.Legacy.redirectSecret("[]"))
+        assertEquals(null, com.zirakusa.redes.mcp.Legacy.redirectSecret(""))
     }
 }

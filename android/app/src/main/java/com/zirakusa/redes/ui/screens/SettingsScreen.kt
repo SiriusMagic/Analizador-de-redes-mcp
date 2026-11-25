@@ -1,7 +1,6 @@
 package com.zirakusa.redes.ui.screens
 
 import com.zirakusa.redes.IconCard
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -32,7 +31,7 @@ import com.zirakusa.redes.ui.RedesState
 import com.zirakusa.redes.ui.theme.RedesColors
 
 /** «Ajustes»: data saver, history, Modo MCP, Temas, privacy and version. */
-@Composable fun SettingsScreen(state: RedesState) {
+@Composable fun SettingsScreen(state: RedesState, openArka: () -> Unit = {}) {
     var privacy by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize().background(RedesColors.Background).systemBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -45,13 +44,12 @@ import com.zirakusa.redes.ui.theme.RedesColors
         }
         Group {
             val status = when {
-                !McpMode.active -> stringResource(R.string.mcp_status_off)
-                McpMode.hubRedirect -> stringResource(R.string.mcp_redirect)
+                !McpMode.remote -> stringResource(R.string.mcp_status_off)
                 McpMode.state == RelayLink.State.ONLINE -> stringResource(R.string.mcp_online)
                 McpMode.state == RelayLink.State.CONNECTING -> stringResource(R.string.mcp_connecting)
                 else -> stringResource(R.string.mcp_offline)
             }
-            Item(stringResource(R.string.mcp_title), "$status · ${stringResource(R.string.mcp_settings_hint)}") { state.page = Page.MCP }
+            Item(stringResource(R.string.mcp_title), "$status · ${stringResource(R.string.mcp_settings_hint)}", onClick = openArka)
         }
         IconCard(RedesColors.Card, RedesColors.Text, RedesColors.Muted, RedesColors.Accent)
         ThemeCard(state.themeMode, state.accent, state::changeTheme, state::changeAccent)

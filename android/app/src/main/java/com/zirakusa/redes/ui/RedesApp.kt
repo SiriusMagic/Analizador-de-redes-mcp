@@ -29,7 +29,6 @@ import androidx.compose.ui.unit.sp
 import com.zirakusa.redes.R
 import com.zirakusa.redes.ui.screens.DiscoverScreen
 import com.zirakusa.redes.ui.screens.HistoryScreen
-import com.zirakusa.redes.ui.screens.McpScreen
 import com.zirakusa.redes.ui.screens.NearbyScreen
 import com.zirakusa.redes.ui.screens.NetworkScreen
 import com.zirakusa.redes.ui.screens.SettingsScreen
@@ -43,8 +42,7 @@ class AppActions(
     val allowWifi: () -> Unit = {},
     val scan: () -> Unit = {},
     val wifiSettings: () -> Unit = {},
-    val copyLink: (String) -> Unit = {},
-    val goToHub: () -> Unit = {},
+    val openArka: () -> Unit = {},
     /** Asks only for the phone permission (the SIMs), and opens the app's page in Android's settings if it was refused. */
     val allowPhone: () -> Unit = {},
     val appSettings: () -> Unit = {},
@@ -57,8 +55,7 @@ class AppActions(
 /** The whole app: the chosen tab with the bar at the bottom, or a page over it. */
 @Composable fun RedesApp(state: RedesState, actions: AppActions = AppActions()) {
     when (state.page) {
-        Page.SETTINGS -> return SettingsScreen(state)
-        Page.MCP -> return McpScreen(actions.copyLink, actions.goToHub) { state.page = Page.SETTINGS }
+        Page.SETTINGS -> return SettingsScreen(state, actions.openArka)
         Page.DISCOVER -> return DiscoverScreen(state, actions)
         Page.HISTORY -> return HistoryScreen(state)
         Page.MAIN -> Unit

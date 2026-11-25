@@ -31,12 +31,13 @@ import com.zirakusa.redes.data.Status
 import com.zirakusa.redes.data.WifiFactors
 import com.zirakusa.redes.ui.theme.Accent
 import com.zirakusa.redes.ui.theme.ThemeMode
+import androidx.compose.runtime.mutableDoubleStateOf
 
 /** The four tabs at the bottom. */
 enum class Tab { NETWORK, SPEED, SIGNAL, NEARBY }
 
 /** What covers the tabs: nothing, Ajustes, Modo MCP, Descubrir or the whole speed history. */
-enum class Page { MAIN, SETTINGS, MCP, DISCOVER, HISTORY }
+enum class Page { MAIN, SETTINGS, DISCOVER, HISTORY }
 
 /**
  * The only owner of Redes' state: the connection now, the networks nearby, the speed test running (phase, live speed,
@@ -84,7 +85,7 @@ class RedesState(kv: KeyValues, private val runner: Runner, private val read: ()
     var results by mutableStateOf(history.list()); private set
     /** The phase of the test running, or null. */
     var phase by mutableStateOf<Phase?>(null); private set
-    var live by mutableStateOf(0.0); private set
+    var live by mutableDoubleStateOf(0.0); private set
     var fraction by mutableFloatStateOf(0f); private set
     var last by mutableStateOf<Result?>(null); private set
     var failed by mutableStateOf(false); private set
