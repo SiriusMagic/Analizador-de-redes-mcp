@@ -29,7 +29,7 @@
     <string name="hub_link_permission">Link with Gateway Hub</string>
     <string name="summary_permission">Summary for Inicio</string>
     <string name="app_title">Network analyser</string>
-    <string name="mcp_settings_hint">Controlled from Arka: turning it on, allowing it locally and creating tokens.</string>
+    <string name="mcp_settings_hint">Set up local access and redirection to Hub.</string>
     <string name="tab_network">Network</string>
     <string name="tab_speed">Speed</string>
     <string name="tab_nearby">Nearby Wi‑Fi</string>
@@ -181,5 +181,5 @@
     <string name="phone_denied">Without the phone permission the SIMs cannot be read. You can allow it in the app\'s settings (Permissions › Phone).</string>
     <string name="open_app_settings">Open app settings</string>
     <string name="history_short">History</string>
-    <string name="mcp_no_arka">Install Arka to turn MCP mode on.</string>
+    <string name="mcp_no_arka">Install Arka to manage Hub connections.</string>
 </resources>
